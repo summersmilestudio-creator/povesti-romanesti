@@ -1,0 +1,435 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import '../models/story.dart';
+import '../providers/favorites_provider.dart';
+import '../providers/settings_provider.dart';
+import '../services/ad_service.dart';
+import '../theme.dart';
+
+enum TtsState { playing, stopped, paused }
+
+class ReadingScreen extends StatefulWidget {
+  final Story story;
+  final FavoritesProvider favoritesProvider;
+  final SettingsProvider settingsProvider;
+
+  const ReadingScreen({
+    super.key,
+    required this.story,
+    required this.favoritesProvider,
+    required this.settingsProvider,
+  });
+
+  @override
+  State<ReadingScreen> createState() => _ReadingScreenState();
+}
+
+class _ReadingScreenState extends State<ReadingScreen> {
+  late PageController _pageController;
+  int _currentPage = 0;
+
+  // TTS
+  late FlutterTts _flutterTts;
+  TtsState _ttsState = TtsState.stopped;
+  bool _ttsInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    widget.favoritesProvider.addListener(_refresh);
+    widget.settingsProvider.addListener(_refresh);
+    _initTts();
+  }
+
+  Future<void> _initTts() async {
+    _flutterTts = FlutterTts();
+
+    await _flutterTts.setLanguage('ro-RO');
+    await _flutterTts.setSpeechRate(0.45);
+    await _flutterTts.setVolume(1.0);
+    await _flutterTts.setPitch(1.0);
+
+    _flutterTts.setCompletionHandler(() {
+      if (_currentPage < widget.story.pages.length - 1) {
+        _pageController.nextPage(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (_ttsState == TtsState.playing) {
+            _speak(widget.story.pages[_currentPage]);
+          }
+        });
+      } else {
+        setState(() => _ttsState = TtsState.stopped);
+      }
+    });
+
+    _flutterTts.setErrorHandler((msg) {
+      setState(() => _ttsState = TtsState.stopped);
+    });
+
+    setState(() => _ttsInitialized = true);
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    _pageController.dispose();
+    widget.favoritesProvider.removeListener(_refresh);
+    widget.settingsProvider.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    setState(() {});
+  }
+
+  Future<void> _speak(String text) async {
+    await _flutterTts.speak(text);
+    setState(() => _ttsState = TtsState.playing);
+  }
+
+  Future<void> _stopTts() async {
+    await _flutterTts.stop();
+    setState(() => _ttsState = TtsState.stopped);
+  }
+
+  Future<void> _pauseTts() async {
+    await _flutterTts.pause();
+    setState(() => _ttsState = TtsState.paused);
+  }
+
+  void _toggleTts() {
+    if (_ttsState == TtsState.playing) {
+      _pauseTts();
+    } else {
+      _speak(widget.story.pages[_currentPage]);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).scaffoldBackgroundColor == AppColors.nightBackground;
+    final isFav = widget.favoritesProvider.isFavorite(widget.story.id);
+    final fontSize = widget.settingsProvider.fontSize;
+    final totalPages = widget.story.pages.length;
+
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.nightBackground : AppColors.cream,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_rounded,
+                      color: isDark ? AppColors.nightText : AppColors.warmBrown,
+                    ),
+                    onPressed: () {
+                      _stopTts();
+                      AdService.showInterstitialAd();
+                      Navigator.pop(context);
+                    },
+                  ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text(
+                          widget.story.title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppColors.nightText : AppColors.warmBrown,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Pagina ${_currentPage + 1} din $totalPages',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? AppColors.nightText.withValues(alpha: 0.6)
+                                : AppColors.lightBrown,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                      color: isFav ? Colors.red.shade400 : (isDark ? AppColors.nightText : AppColors.lightBrown),
+                    ),
+                    onPressed: () => widget.favoritesProvider.toggleFavorite(widget.story.id),
+                  ),
+                ],
+              ),
+            ),
+
+            // Progress bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: ((_currentPage + 1) / totalPages),
+                  backgroundColor: isDark
+                      ? AppColors.nightCard
+                      : AppColors.golden.withValues(alpha: 0.2),
+                  color: AppColors.forestGreen,
+                  minHeight: 6,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            // Page content
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: totalPages,
+                onPageChanged: (page) {
+                  setState(() => _currentPage = page);
+                  if (page == widget.story.pages.length - 1) {
+                    AdService.notifyStoryRead();
+                  }
+                  if (_ttsState == TtsState.playing) {
+                    _flutterTts.stop();
+                    Future.delayed(const Duration(milliseconds: 300), () {
+                      _speak(widget.story.pages[page]);
+                    });
+                  }
+                },
+                itemBuilder: (context, index) {
+                  return _buildPage(index, isDark, fontSize);
+                },
+              ),
+            ),
+
+            // Bottom controls
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.nightCard : AppColors.cardBackground,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Previous page
+                  _buildControlButton(
+                    icon: Icons.arrow_back_ios_rounded,
+                    label: 'Inapoi',
+                    isDark: isDark,
+                    enabled: _currentPage > 0,
+                    onTap: () {
+                      _pageController.previousPage(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                  ),
+                  // Play/Pause TTS
+                  _buildControlButton(
+                    icon: _ttsState == TtsState.playing
+                        ? Icons.pause_rounded
+                        : Icons.volume_up_rounded,
+                    label: _ttsState == TtsState.playing ? 'Pauza' : 'Asculta',
+                    isDark: isDark,
+                    enabled: _ttsInitialized,
+                    highlighted: _ttsState == TtsState.playing,
+                    onTap: _toggleTts,
+                  ),
+                  // Stop TTS
+                  _buildControlButton(
+                    icon: Icons.stop_rounded,
+                    label: 'Stop',
+                    isDark: isDark,
+                    enabled: _ttsState != TtsState.stopped,
+                    onTap: _stopTts,
+                  ),
+                  // Next page
+                  _buildControlButton(
+                    icon: Icons.arrow_forward_ios_rounded,
+                    label: 'Inainte',
+                    isDark: isDark,
+                    enabled: _currentPage < totalPages - 1,
+                    onTap: () {
+                      _pageController.nextPage(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPage(int index, bool isDark, double fontSize) {
+    final isFirst = index == 0;
+    final isLast = index == widget.story.pages.length - 1;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Show emoji and title on first page
+          if (isFirst) ...[
+            Center(
+              child: Text(
+                widget.story.emoji,
+                style: const TextStyle(fontSize: 64),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: Text(
+                widget.story.title,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.nightAccent : AppColors.forestGreen,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            if (widget.story.author != 'Basm popular românesc')
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    'de ${widget.story.author}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                      color: isDark
+                          ? AppColors.nightText.withValues(alpha: 0.6)
+                          : AppColors.lightBrown,
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 24),
+            Center(
+              child: Container(
+                width: 60,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.golden.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          // Story text
+          Text(
+            widget.story.pages[index],
+            style: TextStyle(
+              fontSize: fontSize,
+              height: 1.8,
+              color: isDark ? AppColors.nightText : AppColors.warmBrown,
+              letterSpacing: 0.2,
+            ),
+          ),
+
+          // End decoration on last page
+          if (isLast) ...[
+            const SizedBox(height: 32),
+            Center(
+              child: Container(
+                width: 60,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.golden.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
+                '${widget.story.emoji} Sfarsit ${widget.story.emoji}',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  fontStyle: FontStyle.italic,
+                  color: isDark ? AppColors.nightAccent : AppColors.forestGreen,
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControlButton({
+    required IconData icon,
+    required String label,
+    required bool isDark,
+    required bool enabled,
+    bool highlighted = false,
+    required VoidCallback onTap,
+  }) {
+    final color = !enabled
+        ? (isDark ? AppColors.nightText.withValues(alpha: 0.2) : AppColors.lightBrown.withValues(alpha: 0.3))
+        : highlighted
+            ? AppColors.forestGreen
+            : (isDark ? AppColors.nightText : AppColors.warmBrown);
+
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: highlighted
+                  ? AppColors.forestGreen.withValues(alpha: 0.15)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: highlighted ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
