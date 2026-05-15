@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../data/stories.dart';
 import '../providers/favorites_provider.dart';
 import '../providers/settings_provider.dart';
-import '../services/ad_service.dart';
-import '../services/subscription_service.dart';
 import '../widgets/story_card.dart';
 import '../theme.dart';
 import 'reading_screen.dart';
@@ -24,39 +21,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  BannerAd? _bannerAd;
-  bool _isBannerLoaded = false;
-
   @override
   void initState() {
     super.initState();
     widget.favoritesProvider.addListener(_refresh);
-    SubscriptionService.instance.noAdsNotifier.addListener(_onSubscriptionChanged);
-    _loadBannerAd();
-  }
-
-  void _onSubscriptionChanged() {
-    if (SubscriptionService.instance.noAds && _bannerAd != null) {
-      _bannerAd?.dispose();
-      _bannerAd = null;
-      if (mounted) setState(() => _isBannerLoaded = false);
-    }
-  }
-
-  void _loadBannerAd() {
-    final ad = AdService.createBannerAdIfAllowed();
-    if (ad == null) return;
-    _bannerAd = ad
-      ..load().then((_) {
-        if (mounted) setState(() => _isBannerLoaded = true);
-      });
   }
 
   @override
   void dispose() {
-    _bannerAd?.dispose();
     widget.favoritesProvider.removeListener(_refresh);
-    SubscriptionService.instance.noAdsNotifier.removeListener(_onSubscriptionChanged);
     super.dispose();
   }
 
@@ -191,17 +164,6 @@ class _HomeScreenState extends State<HomeScreen> {
               childCount: allStories.length,
             ),
           ),
-          // Banner ad
-          if (_isBannerLoaded && _bannerAd != null)
-            SliverToBoxAdapter(
-              child: Container(
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                width: _bannerAd!.size.width.toDouble(),
-                height: _bannerAd!.size.height.toDouble(),
-                child: AdWidget(ad: _bannerAd!),
-              ),
-            ),
           const SliverToBoxAdapter(
             child: SizedBox(height: 16),
           ),

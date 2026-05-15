@@ -28,6 +28,7 @@ class ReadingScreen extends StatefulWidget {
 class _ReadingScreenState extends State<ReadingScreen> {
   late PageController _pageController;
   int _currentPage = 0;
+  bool _reachedEnd = false;
 
   // TTS
   late FlutterTts _flutterTts;
@@ -47,9 +48,13 @@ class _ReadingScreenState extends State<ReadingScreen> {
     _flutterTts = FlutterTts();
 
     await _flutterTts.setLanguage('ro-RO');
-    await _flutterTts.setSpeechRate(0.45);
+    await _flutterTts.awaitSpeakCompletion(true);
+    await _selectBestVoice();
+    // Rate puțin mai natural (0.42 sună uman, nu robotic-rapid)
+    await _flutterTts.setSpeechRate(0.42);
     await _flutterTts.setVolume(1.0);
-    await _flutterTts.setPitch(1.0);
+    // Pitch puțin sub 1.0 = mai cald, mai puțin metalic
+    await _flutterTts.setPitch(0.95);
 
     _flutterTts.setCompletionHandler(() {
       if (_currentPage < widget.story.pages.length - 1) {
@@ -72,6 +77,51 @@ class _ReadingScreenState extends State<ReadingScreen> {
     });
 
     setState(() => _ttsInitialized = true);
+  }
+
+  /// Selectează cea mai naturală voce ro-RO disponibilă.
+  /// Prioritate: network/neural/wavenet > premium/enhanced > female default > orice ro.
+  Future<void> _selectBestVoice() async {
+    try {
+      final dynamic raw = await _flutterTts.getVoices;
+      if (raw is! List) return;
+      final voices = raw
+          .whereType<Map>()
+          .map((m) => m.map((k, v) => MapEntry(k.toString(), v?.toString() ?? '')))
+          .where((v) => (v['locale'] ?? '').toLowerCase().startsWith('ro'))
+          .toList();
+      if (voices.isEmpty) return;
+
+      int score(Map<String, String> v) {
+        final name = (v['name'] ?? '').toLowerCase();
+        int s = 0;
+        // Voci Google Neural / Network (Android) — cele mai naturale, sună aproape uman
+        if (name.contains('network')) s += 100;
+        if (name.contains('neural')) s += 100;
+        if (name.contains('wavenet')) s += 90;
+        // iOS premium/enhanced voices
+        if (name.contains('premium')) s += 80;
+        if (name.contains('enhanced')) s += 70;
+        // Voce feminină pentru basme — Ioana / Carmen / Andreea — sună mai cald
+        if (name.contains('ioana')) s += 30;
+        if (name.contains('carmen')) s += 25;
+        if (name.contains('andreea')) s += 20;
+        if (name.contains('female') || name.contains('f00') || name.contains('rod')) s += 10;
+        // Penalizează vocile evident sintetice
+        if (name.contains('local') && !name.contains('premium')) s -= 5;
+        if (name.contains('compact')) s -= 15;
+        return s;
+      }
+
+      voices.sort((a, b) => score(b).compareTo(score(a)));
+      final best = voices.first;
+      await _flutterTts.setVoice({
+        'name': best['name'] ?? '',
+        'locale': best['locale'] ?? 'ro-RO',
+      });
+    } catch (_) {
+      // Dacă API-ul nu suportă getVoices/setVoice, păstrăm vocea default
+    }
   }
 
   @override
@@ -110,6 +160,84 @@ class _ReadingScreenState extends State<ReadingScreen> {
     }
   }
 
+  Future<void> _handleExit() async {
+    await _stopTts();
+    if (!mounted) return;
+    // Dacă userul a terminat povestea și avem rewarded interstitial gata,
+    // afișăm un „heads-up" conform politicii AdMob înainte de reclamă.
+    if (_reachedEnd &&
+        !AdService.adsBlocked &&
+        AdService.isRewardedInterstitialReady) {
+      final accept = await _showHeadsUpDialog();
+      if (!mounted) return;
+      if (accept == true) {
+        final shown = AdService.showRewardedInterstitialAd(
+          onReward: () {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('🎉 15 minute fără reclame, mulțumim!'),
+                ),
+              );
+            }
+          },
+        );
+        if (!shown) AdService.showInterstitialAd();
+      } else {
+        AdService.showInterstitialAd();
+      }
+    } else {
+      AdService.showInterstitialAd();
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  Future<bool?> _showHeadsUpDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reclamă scurtă'),
+        content: const Text(
+          'Vizionezi un clip scurt și primești 15 minute fără reclame. Continui?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Nu, mulțumesc'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Continuă'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _offerRewardedAdFree() {
+    AdService.showRewardedAd(
+      onReward: () {
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎉 30 de minute fără reclame, savurează poveștile!'),
+            ),
+          );
+        }
+      },
+      onUnavailable: () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Clipul nu e disponibil acum, încearcă mai târziu.'),
+            ),
+          );
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).scaffoldBackgroundColor == AppColors.nightBackground;
@@ -132,11 +260,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                       Icons.arrow_back_rounded,
                       color: isDark ? AppColors.nightText : AppColors.warmBrown,
                     ),
-                    onPressed: () {
-                      _stopTts();
-                      AdService.showInterstitialAd();
-                      Navigator.pop(context);
-                    },
+                    onPressed: _handleExit,
                   ),
                   Expanded(
                     child: Column(
@@ -201,6 +325,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 onPageChanged: (page) {
                   setState(() => _currentPage = page);
                   if (page == widget.story.pages.length - 1) {
+                    _reachedEnd = true;
                     AdService.notifyStoryRead();
                   }
                   if (_ttsState == TtsState.playing) {
@@ -382,9 +507,55 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 24),
+            _buildRewardedCta(isDark),
             const SizedBox(height: 32),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildRewardedCta(bool isDark) {
+    if (AdService.isAdFreeActive) {
+      return Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.forestGreen.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            '✓ Fără reclame · ${AdService.adFreeMinutesLeft} min rămase',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppColors.nightAccent : AppColors.forestGreen,
+            ),
+          ),
+        ),
+      );
+    }
+    if (AdService.adsBlocked || !AdService.isRewardedReady) {
+      return const SizedBox.shrink();
+    }
+    return Center(
+      child: ElevatedButton.icon(
+        onPressed: _offerRewardedAdFree,
+        icon: const Icon(Icons.play_circle_fill_rounded),
+        label: const Text('30 min fără reclame — vezi un clip'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.forestGreen,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
