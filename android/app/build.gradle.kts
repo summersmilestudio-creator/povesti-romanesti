@@ -50,8 +50,11 @@ android {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
+            // Varianta NEoptimizată: shrink + obfuscare (suficient pt
+            // mărime) dar fără optimizările agresive (inline/merge) ale
+            // variantei "-optimize" care strică plugin-urile cu reflexie.
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
+                getDefaultProguardFile("proguard-android.txt"),
                 "proguard-rules.pro"
             )
         }

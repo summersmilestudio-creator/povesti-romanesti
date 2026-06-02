@@ -6,6 +6,7 @@ import '../providers/favorites_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/ad_service.dart';
 import '../theme.dart';
+import '../widgets/bottom_banner_ad.dart';
 
 enum TtsState { playing, stopped, paused }
 
@@ -247,6 +248,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.nightBackground : AppColors.cream,
+      bottomNavigationBar: const SafeArea(
+        top: false,
+        child: BottomBannerAd(),
+      ),
       body: SafeArea(
         child: Column(
           children: [

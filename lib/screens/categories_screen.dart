@@ -4,9 +4,10 @@ import '../data/stories.dart';
 import '../models/story.dart';
 import '../providers/favorites_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/unlock_service.dart';
 import '../widgets/story_card.dart';
+import '../widgets/paywall.dart';
 import '../theme.dart';
-import 'reading_screen.dart';
 
 class CategoriesScreen extends StatefulWidget {
   final FavoritesProvider favoritesProvider;
@@ -29,11 +30,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   void initState() {
     super.initState();
     widget.favoritesProvider.addListener(_refresh);
+    UnlockService.instance.unlockedNotifier.addListener(_refresh);
   }
 
   @override
   void dispose() {
     widget.favoritesProvider.removeListener(_refresh);
+    UnlockService.instance.unlockedNotifier.removeListener(_refresh);
     super.dispose();
   }
 
@@ -96,18 +99,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         return StoryCard(
                           story: story,
                           favoritesProvider: widget.favoritesProvider,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ReadingScreen(
-                                  story: story,
-                                  favoritesProvider: widget.favoritesProvider,
-                                  settingsProvider: widget.settingsProvider,
-                                ),
-                              ),
-                            );
-                          },
+                          locked: isStoryLocked(story),
+                          onTap: () => openStory(
+                            context,
+                            story,
+                            widget.favoritesProvider,
+                            widget.settingsProvider,
+                          ),
                         );
                       },
                     ),

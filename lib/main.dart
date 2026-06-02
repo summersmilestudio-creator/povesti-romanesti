@@ -1,6 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'providers/favorites_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
@@ -10,19 +10,56 @@ import 'screens/settings_screen.dart';
 import 'services/ad_service.dart';
 import 'services/notification_service.dart';
 import 'services/subscription_service.dart';
+import 'services/unlock_service.dart';
 import 'theme.dart';
+import 'widgets/bottom_banner_ad.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-  await SubscriptionService.instance.initialize();
-  await AdService.initialize();
-  await NotificationService.instance.initialize();
-  await NotificationService.instance.scheduleDailyReminders();
-  runApp(const PovestiApp());
+/// Rulează un pas de inițializare izolat. Dacă pică (ex. plugin stripat de
+/// R8 în release, lipsă Play Services, permisiune refuzată) logăm eroarea
+/// și mergem mai departe — un serviciu picat (ads / IAP / notificări) NU
+/// mai are voie să blocheze `runApp()`. Aceasta era cauza ecranului alb din
+/// 2.3.1: orice excepție în `main()` oprea pornirea aplicației definitiv.
+Future<void> _safeInit(String name, Future<void> Function() step) async {
+  try {
+    await step();
+  } catch (e, st) {
+    debugPrint('[init] "$name" a esuat (continui oricum): $e');
+    debugPrintStack(stackTrace: st, label: 'init:$name');
+  }
+}
+
+void main() {
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    // Erorile de framework nu mai trebuie să lase ecranul gol în tăcere.
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      debugPrint('[FlutterError] ${details.exceptionAsString()}');
+    };
+
+    await _safeInit('orientation', () async {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    });
+    await _safeInit(
+        'SubscriptionService', SubscriptionService.instance.initialize);
+    await _safeInit('UnlockService', UnlockService.instance.initialize);
+    await _safeInit('AdService', AdService.initialize);
+    await _safeInit(
+        'NotificationService', NotificationService.instance.initialize);
+    await _safeInit('scheduleDailyReminders',
+        NotificationService.instance.scheduleDailyReminders);
+
+    runApp(const PovestiApp());
+  }, (error, stack) {
+    // Plasă de siguranță finală: chiar și o eroare neașteptată în zonă
+    // nu mai trebuie să lase utilizatorul cu ecran alb.
+    debugPrint('[zone] Eroare neprinsa: $error');
+    debugPrintStack(stackTrace: stack, label: 'zone');
+  });
 }
 
 class PovestiApp extends StatefulWidget {
@@ -94,43 +131,6 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
-  BannerAd? _bannerAd;
-  bool _isBannerLoaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBannerAd();
-    SubscriptionService.instance.noAdsNotifier.addListener(_onAdsAvailabilityChanged);
-    AdService.adFreeNotifier.addListener(_onAdsAvailabilityChanged);
-  }
-
-  void _loadBannerAd() {
-    final ad = AdService.createBannerAdIfAllowed();
-    if (ad == null) return;
-    _bannerAd = ad
-      ..load().then((_) {
-        if (mounted) setState(() => _isBannerLoaded = true);
-      });
-  }
-
-  void _onAdsAvailabilityChanged() {
-    if (AdService.adsBlocked) {
-      _bannerAd?.dispose();
-      _bannerAd = null;
-      if (mounted) setState(() => _isBannerLoaded = false);
-    } else if (_bannerAd == null) {
-      _loadBannerAd();
-    }
-  }
-
-  @override
-  void dispose() {
-    _bannerAd?.dispose();
-    SubscriptionService.instance.noAdsNotifier.removeListener(_onAdsAvailabilityChanged);
-    AdService.adFreeNotifier.removeListener(_onAdsAvailabilityChanged);
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -160,13 +160,7 @@ class _MainNavigationState extends State<MainNavigation> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_isBannerLoaded && _bannerAd != null)
-            Container(
-              alignment: Alignment.center,
-              width: _bannerAd!.size.width.toDouble(),
-              height: _bannerAd!.size.height.toDouble(),
-              child: AdWidget(ad: _bannerAd!),
-            ),
+          const BottomBannerAd(),
           BottomNavigationBar(
             currentIndex: _currentIndex,
             onTap: (index) => setState(() => _currentIndex = index),

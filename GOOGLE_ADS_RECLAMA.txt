@@ -1,0 +1,57 @@
+============================================================
+RECLAMĂ GOOGLE ADS — POVEȘTI ROMÂNEȘTI
+Cont: 778-093-6788 (summer.smile.studio) | ads.google.com
+============================================================
+
+VARIANTA ALEASĂ: 16 lei/zi × 4 zile  (total ~64 lei)
+Fonduri de adăugat în cont: 65 lei (card Mastercard ••4265)
+
+------------------------------------------------------------
+PASUL 0 — ADAUGĂ FONDURI (cont preplătit, sold ~0)
+  Facturare → Rezumat → "Adăugați fonduri" → 65 lei
+------------------------------------------------------------
+PASUL 1 — CREEAZĂ CAMPANIA
+  Creați (+) → Campanie → "Promovarea aplicațiilor"
+  → tip "Aplicație" → "Instalările aplicației" → Android
+  → caută:  ro.povestiromanesti.app   (alege "Povesti Romanesti - Basme")
+  Nume campanie:  Povești Românești - Instalări RO
+------------------------------------------------------------
+PASUL 2 — SETĂRI
+  Locație:  România
+  Limbă:    Română
+  Anunțuri politice UE:  Nu
+------------------------------------------------------------
+PASUL 3 — TEXTE (copiază exact)
+
+TITLURI (max 30 caractere fiecare):
+  Povești Românești
+  Basme clasice românești
+  Povești de adormit copiii
+  Citește-i o poveste seara
+  Capra cu trei iezi & altele
+
+DESCRIERI (max 90 caractere fiecare):
+  Basme românești clasice cu narare, pentru copii 2-6 ani. Citește sau ascultă seara.
+  Capra cu trei iezi, Făt-Frumos, Prâslea și zeci de povești. Descarcă gratuit!
+  Povești de culcare în limba română, cu mod noapte și control parental.
+  60 de basme într-o aplicație. Primele 4 gratuite, restul deblocate ieftin.
+  Aprinde imaginația copilului cu basme românești frumos ilustrate.
+
+(Iconul + imaginile se iau automat din pagina Google Play — nu trebuie încărcate.)
+------------------------------------------------------------
+PASUL 4 — LICITARE ȘI BUGET
+  Axare:  Volumul de instalări  →  Toți utilizatorii
+  Urmărire: Instalări (Google Play) — implicit
+  Cost pe instalare vizat:  1,20 RON  (sugestia Google; bifa e opțională)
+  Buget zilnic:  16 RON   (buget personalizat)
+------------------------------------------------------------
+PASUL 5 — PUBLICĂ
+  Verificați → Publicați campania
+  → "Confirmați-vă identitatea" (parolă + cod 2FA pe telefon)
+============================================================
+NOTE:
+- Contul preplătit = plafon dur: după ~64 lei se oprește singur.
+- Cost/instalare real poate fi 1,5–3 lei (estimarea 1,20 e generică).
+  Estimativ: ~20–45 instalări în 4 zile.
+- 4 zile = test scurt; dă totuși algoritmului mai mult timp decât 2 zile.
+============================================================

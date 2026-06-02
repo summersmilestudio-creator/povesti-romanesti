@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart';
+import 'dart:math' as math;
+import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'subscription_service.dart';
 
@@ -35,8 +36,30 @@ class AdService {
   static DateTime? _lastInterstitialAt;
   static Timer? _periodicTimer;
   static const int _storiesBetweenAds = 1;
-  static const Duration _minTimeBetweenAds = Duration(seconds: 45);
-  static const Duration _periodicInterval = Duration(minutes: 1);
+  // Cadență mai relaxată: cere reclame mai rar. Mai puține solicitări
+  // neumplute => rată de potrivire mai mare + conform politicii AdMob
+  // (interstitial-urile prea dese pot duce la limitarea contului).
+  static const Duration _minTimeBetweenAds = Duration(minutes: 3);
+  // Timer-ul periodic e doar o plasă de siguranță; reclamele apar firesc
+  // la finalul poveștii. Era 1 min (prea agresiv, umplea cu solicitări goale).
+  static const Duration _periodicInterval = Duration(minutes: 5);
+
+  // ---- Retry cu backoff exponențial (crește rata de potrivire) ----
+  // O solicitare care eșua era abandonată instant. Cu retry, multe
+  // solicitări „neumplute" ajung umplute la a 2-a/3-a încercare.
+  static const int _maxLoadRetries = 5;
+  static int _interstitialRetry = 0;
+  static int _rewardedRetry = 0;
+  static int _rewardedInterstitialRetry = 0;
+  static int _appOpenRetry = 0;
+  static Timer? _interstitialRetryTimer;
+  static Timer? _rewardedRetryTimer;
+  static Timer? _rewardedInterstitialRetryTimer;
+  static Timer? _appOpenRetryTimer;
+
+  /// Backoff: 2s, 4s, 8s, 16s, 32s, max 60s.
+  static Duration _backoff(int attempt) =>
+      Duration(seconds: math.min(60, math.pow(2, attempt + 1).toInt()));
 
   // ---- Recompensă: fereastră temporară fără reclame ----
   static DateTime? _adFreeUntil;
@@ -127,19 +150,34 @@ class AdService {
   // ====================================================================
   // BANNER (existent)
   // ====================================================================
-  static BannerAd? createBannerAdIfAllowed() {
-    if (adsBlocked) return null;
-    return createBannerAd();
+  /// Dimensiune banner adaptiv ancorat — umple mai bine inventarul și are
+  /// eCPM mai mare decât bannerul fix 320x50. Fallback la bannerul standard
+  /// dacă platforma nu poate calcula dimensiunea adaptivă.
+  static Future<AdSize> resolveBannerSize(int widthDp) async {
+    final adaptive = await AdSize.getAnchoredAdaptiveBannerAdSize(
+      Orientation.portrait,
+      widthDp,
+    );
+    return adaptive ?? AdSize.banner;
   }
 
-  static BannerAd createBannerAd() {
+  /// Creează un banner (adaptiv dacă se trimite [size]) cu callback-uri de
+  /// încărcare. Eșecul e raportat prin [onFailed] ca să poată fi reîncercat
+  /// cu backoff (vezi main.dart) — esențial pentru rata de potrivire.
+  static BannerAd createBannerAd({
+    AdSize size = AdSize.banner,
+    VoidCallback? onLoaded,
+    VoidCallback? onFailed,
+  }) {
     return BannerAd(
       adUnitId: bannerAdUnitId,
-      size: AdSize.banner,
+      size: size,
       request: const AdRequest(),
       listener: BannerAdListener(
+        onAdLoaded: (_) => onLoaded?.call(),
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
+          onFailed?.call();
         },
       ),
     );
@@ -155,6 +193,8 @@ class AdService {
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
+          _interstitialRetry = 0;
+          _interstitialRetryTimer?.cancel();
           _interstitialAd = ad;
           _isInterstitialLoaded = true;
           ad.fullScreenContentCallback = FullScreenContentCallback(
@@ -174,6 +214,10 @@ class AdService {
         },
         onAdFailedToLoad: (error) {
           _isInterstitialLoaded = false;
+          _interstitialRetryTimer?.cancel();
+          if (adsBlocked || _interstitialRetry >= _maxLoadRetries) return;
+          final delay = _backoff(_interstitialRetry++);
+          _interstitialRetryTimer = Timer(delay, loadInterstitialAd);
         },
       ),
     );
@@ -197,6 +241,8 @@ class AdService {
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
+          _rewardedRetry = 0;
+          _rewardedRetryTimer?.cancel();
           _rewardedAd = ad;
           _isRewardedLoaded = true;
           ad.fullScreenContentCallback = FullScreenContentCallback(
@@ -216,6 +262,10 @@ class AdService {
         },
         onAdFailedToLoad: (error) {
           _isRewardedLoaded = false;
+          _rewardedRetryTimer?.cancel();
+          if (adsBlocked || _rewardedRetry >= _maxLoadRetries) return;
+          final delay = _backoff(_rewardedRetry++);
+          _rewardedRetryTimer = Timer(delay, loadRewardedAd);
         },
       ),
     );
@@ -255,6 +305,8 @@ class AdService {
       request: const AdRequest(),
       rewardedInterstitialAdLoadCallback: RewardedInterstitialAdLoadCallback(
         onAdLoaded: (ad) {
+          _rewardedInterstitialRetry = 0;
+          _rewardedInterstitialRetryTimer?.cancel();
           _rewardedInterstitialAd = ad;
           _isRewardedInterstitialLoaded = true;
           ad.fullScreenContentCallback = FullScreenContentCallback(
@@ -274,6 +326,14 @@ class AdService {
         },
         onAdFailedToLoad: (error) {
           _isRewardedInterstitialLoaded = false;
+          _rewardedInterstitialRetryTimer?.cancel();
+          if (adsBlocked ||
+              _rewardedInterstitialRetry >= _maxLoadRetries) {
+            return;
+          }
+          final delay = _backoff(_rewardedInterstitialRetry++);
+          _rewardedInterstitialRetryTimer =
+              Timer(delay, loadRewardedInterstitialAd);
         },
       ),
     );
@@ -317,12 +377,18 @@ class AdService {
       request: const AdRequest(),
       adLoadCallback: AppOpenAdLoadCallback(
         onAdLoaded: (ad) {
+          _appOpenRetry = 0;
+          _appOpenRetryTimer?.cancel();
           _appOpenAd = ad;
           _isAppOpenLoaded = true;
           _appOpenLoadTime = DateTime.now();
         },
         onAdFailedToLoad: (error) {
           _isAppOpenLoaded = false;
+          _appOpenRetryTimer?.cancel();
+          if (adsBlocked || _appOpenRetry >= _maxLoadRetries) return;
+          final delay = _backoff(_appOpenRetry++);
+          _appOpenRetryTimer = Timer(delay, loadAppOpenAd);
         },
       ),
     );

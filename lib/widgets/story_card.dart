@@ -7,12 +7,14 @@ class StoryCard extends StatelessWidget {
   final Story story;
   final FavoritesProvider favoritesProvider;
   final VoidCallback onTap;
+  final bool locked;
 
   const StoryCard({
     super.key,
     required this.story,
     required this.favoritesProvider,
     required this.onTap,
+    this.locked = false,
   });
 
   @override
@@ -42,25 +44,49 @@ class StoryCard extends StatelessWidget {
           child: Row(
             children: [
               // Emoji illustration
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.nightBackground
-                      : AppColors.cream,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.golden.withValues(alpha: 0.3),
-                    width: 2,
+              Stack(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.nightBackground
+                          : AppColors.cream,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.golden.withValues(alpha: 0.3),
+                        width: 2,
+                      ),
+                    ),
+                    child: Center(
+                      child: Opacity(
+                        opacity: locked ? 0.45 : 1.0,
+                        child: Text(
+                          story.emoji,
+                          style: const TextStyle(fontSize: 36),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                child: Center(
-                  child: Text(
-                    story.emoji,
-                    style: const TextStyle(fontSize: 36),
-                  ),
-                ),
+                  if (locked)
+                    Positioned(
+                      right: 4,
+                      bottom: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.golden,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.lock_rounded,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(width: 16),
               // Story info
@@ -92,13 +118,17 @@ class StoryCard extends StatelessWidget {
                     Row(
                       children: [
                         Icon(
-                          Icons.auto_stories_rounded,
+                          locked
+                              ? Icons.lock_rounded
+                              : Icons.auto_stories_rounded,
                           size: 14,
                           color: AppColors.golden,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${story.pageCount} pagini',
+                          locked
+                              ? 'Deblochează'
+                              : '${story.pageCount} pagini',
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.golden,

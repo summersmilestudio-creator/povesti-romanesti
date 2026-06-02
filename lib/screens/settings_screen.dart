@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../data/stories.dart';
 import '../providers/settings_provider.dart';
 import '../services/subscription_service.dart';
+import '../services/unlock_service.dart';
 import '../theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -17,19 +19,60 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _purchaseInProgress = false;
+  bool _unlockInProgress = false;
 
   @override
   void initState() {
     super.initState();
     widget.settingsProvider.addListener(_refresh);
     SubscriptionService.instance.noAdsNotifier.addListener(_refresh);
+    UnlockService.instance.unlockedNotifier.addListener(_refresh);
   }
 
   @override
   void dispose() {
     widget.settingsProvider.removeListener(_refresh);
     SubscriptionService.instance.noAdsNotifier.removeListener(_refresh);
+    UnlockService.instance.unlockedNotifier.removeListener(_refresh);
     super.dispose();
+  }
+
+  Future<void> _buyUnlock() async {
+    setState(() => _unlockInProgress = true);
+    try {
+      final ok = await UnlockService.instance.buyUnlock();
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cumpărarea nu e disponibilă acum. Încearcă mai târziu.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _unlockInProgress = false);
+    }
+  }
+
+  Future<void> _restoreUnlock() async {
+    setState(() => _unlockInProgress = true);
+    try {
+      await UnlockService.instance.restore();
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              UnlockService.instance.unlocked
+                  ? 'Poveștile au fost deblocate!'
+                  : 'Nicio achiziție de restaurat.',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _unlockInProgress = false);
+    }
   }
 
   void _refresh() {
@@ -156,6 +199,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
 
+            _buildUnlockCard(isDark),
+
+            const SizedBox(height: 16),
+
             _buildNoAdsCard(isDark),
 
             const SizedBox(height: 32),
@@ -223,6 +270,154 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildUnlockCard(bool isDark) {
+    final unlock = UnlockService.instance;
+    final isActive = unlock.unlocked;
+    final price = unlock.formattedPrice;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: isActive
+            ? LinearGradient(
+                colors: [
+                  AppColors.forestGreen.withValues(alpha: 0.15),
+                  AppColors.golden.withValues(alpha: 0.15),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
+        color: isActive
+            ? null
+            : (isDark ? AppColors.nightCard : AppColors.cardBackground),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isActive
+              ? AppColors.forestGreen.withValues(alpha: 0.6)
+              : AppColors.golden.withValues(alpha: 0.3),
+          width: isActive ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? AppColors.forestGreen.withValues(alpha: 0.2)
+                      : (isDark ? AppColors.nightBackground : AppColors.cream),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isActive ? Icons.lock_open_rounded : Icons.lock_rounded,
+                  color: isActive ? AppColors.forestGreen : AppColors.golden,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isActive
+                          ? 'Toate poveștile deblocate'
+                          : 'Deblochează toate poveștile',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark
+                            ? AppColors.nightText
+                            : AppColors.warmBrown,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isActive
+                          ? 'Mulțumim! Ai acces la toate basmele.'
+                          : 'Primele $kFreeStoryCount povești sunt gratuite',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.nightText.withValues(alpha: 0.7)
+                            : AppColors.lightBrown,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (!isActive) ...[
+            const SizedBox(height: 16),
+            Text(
+              'O singură plată, pentru totdeauna — fără abonament. '
+              'Deblochezi toate cele ${allStories.length} basme și legende.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: isDark ? AppColors.nightText : AppColors.warmBrown,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _unlockInProgress ? null : _buyUnlock,
+                icon: _unlockInProgress
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.lock_open_rounded),
+                label: Text(
+                  _unlockInProgress
+                      ? 'Se procesează...'
+                      : 'Deblochează — $price',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.forestGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton(
+                onPressed: _unlockInProgress ? null : _restoreUnlock,
+                child: Text(
+                  'Restaurează achizițiile',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.lightBrown,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

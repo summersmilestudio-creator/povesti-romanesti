@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'purchase_notifier.dart';
+
 class SubscriptionService {
   SubscriptionService._();
   static final SubscriptionService instance = SubscriptionService._();
@@ -62,11 +64,19 @@ class SubscriptionService {
 
   Future<void> _onPurchaseUpdated(List<PurchaseDetails> purchases) async {
     for (final p in purchases) {
+      // Tratează doar produsul propriu. Alte produse (ex. deblocarea
+      // poveștilor) sunt confirmate de serviciul lor, ca să nu se apeleze
+      // completePurchase de două ori pe aceeași achiziție.
+      if (p.productID != noAdsMonthlyId) continue;
       if (p.status == PurchaseStatus.purchased ||
           p.status == PurchaseStatus.restored) {
-        if (p.productID == noAdsMonthlyId) {
-          await _grantNoAds();
-        }
+        await _grantNoAds();
+      }
+      if (p.status == PurchaseStatus.purchased) {
+        unawaited(PurchaseNotifier.notifyPurchase(
+          packageName: 'ro.povestiromanesti.app',
+          purchase: p,
+        ));
       }
       if (p.pendingCompletePurchase) {
         await _iap.completePurchase(p);
