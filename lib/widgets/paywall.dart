@@ -7,12 +7,9 @@ import '../screens/reading_screen.dart';
 import '../services/unlock_service.dart';
 import '../theme.dart';
 
-/// True dacă povestea e blocată: nu e printre cele gratuite și
-/// nu s-a cumpărat deblocarea totală.
-bool isStoryLocked(Story story) {
-  if (UnlockService.instance.unlocked) return false;
-  return !isFreeStory(story);
-}
+/// Toate poveștile sunt GRATUITE — monetizare exclusiv prin reclame.
+/// (Modelul vechi cu plată unică a fost eliminat: nicio poveste nu mai e blocată.)
+bool isStoryLocked(Story story) => false;
 
 /// Deschide povestea dacă e permisă; altfel arată paywall-ul.
 Future<void> openStory(
