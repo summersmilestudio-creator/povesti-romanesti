@@ -9,7 +9,6 @@ import 'screens/favorites_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/ad_service.dart';
 import 'services/notification_service.dart';
-import 'services/subscription_service.dart';
 import 'services/unlock_service.dart';
 import 'theme.dart';
 import 'widgets/bottom_banner_ad.dart';
@@ -44,8 +43,6 @@ void main() {
         DeviceOrientation.portraitDown,
       ]);
     });
-    await _safeInit(
-        'SubscriptionService', SubscriptionService.instance.initialize);
     await _safeInit('UnlockService', UnlockService.instance.initialize);
     await _safeInit('AdService', AdService.initialize);
     await _safeInit(
@@ -153,9 +150,44 @@ class _MainNavigationState extends State<MainNavigation> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppColors.cosmicTop,
+              AppColors.cosmicMid,
+              AppColors.cosmicBottom,
+            ],
+            stops: [0.0, 0.5, 1.0],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Aură caldă în partea de sus (ca lumina stelei din iconiță)
+            Positioned(
+              top: -120,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 320,
+                decoration: const BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.topCenter,
+                    radius: 0.9,
+                    colors: [Color(0x33FFC95B), Color(0x00FFC95B)],
+                  ),
+                ),
+              ),
+            ),
+            IndexedStack(
+              index: _currentIndex,
+              children: screens,
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/story.dart';
 import '../providers/favorites_provider.dart';
 import '../theme.dart';
+import 'story_illustration.dart';
 
 class StoryCard extends StatelessWidget {
   final Story story;
@@ -29,13 +30,12 @@ class StoryCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isDark ? AppColors.nightCard : AppColors.cardBackground,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.glassStroke, width: 1),
           boxShadow: [
             BoxShadow(
-              color: isDark
-                  ? Colors.black26
-                  : AppColors.golden.withValues(alpha: 0.2),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: AppColors.golden.withValues(alpha: 0.16),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -50,22 +50,17 @@ class StoryCard extends StatelessWidget {
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.nightBackground
-                          : AppColors.cream,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: AppColors.golden.withValues(alpha: 0.3),
+                        color: AppColors.golden.withValues(alpha: 0.35),
                         width: 2,
                       ),
                     ),
-                    child: Center(
-                      child: Opacity(
-                        opacity: locked ? 0.45 : 1.0,
-                        child: Text(
-                          story.emoji,
-                          style: const TextStyle(fontSize: 36),
-                        ),
+                    child: Opacity(
+                      opacity: locked ? 0.45 : 1.0,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: StoryIllustration(story: story, size: 72),
                       ),
                     ),
                   ),

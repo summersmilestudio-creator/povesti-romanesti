@@ -1,7 +1,7 @@
 name: povesti_romanesti
 description: "Povești și legende românești - patrimoniu cultural pentru toată familia"
 publish_to: 'none'
-version: 2.3.5+13
+version: 2.3.7+15
 
 environment:
   sdk: ^3.11.1
@@ -29,11 +29,12 @@ flutter_launcher_icons:
   ios: true
   remove_alpha_ios: true
   image_path: "assets/app_icon.png"
-  adaptive_icon_background: "#FFF8F0"
-  adaptive_icon_foreground: "assets/app_icon_foreground.png"
+  adaptive_icon_background: "#3A1F86"
+  adaptive_icon_foreground: "assets/app_icon.png"
   min_sdk_android: 21
 
 flutter:
   uses-material-design: true
   assets:
     - assets/
+    - assets/illustrations/

@@ -1,20 +1,36 @@
 import 'package:flutter/material.dart';
 
+/// Paletă „cosmic" — în stilul iconiței: gradient mov profund, carduri de
+/// sticlă (alb translucid peste mov), accent auriu (stea) + teal (cotor carte),
+/// text lavandă. Numele vechi sunt păstrate ca să nu rup ecranele existente,
+/// dar valorile sunt remapate la noul stil.
 class AppColors {
-  static const Color cream = Color(0xFFFFF8F0);
-  static const Color warmBrown = Color(0xFF4A3728);
-  static const Color lightBrown = Color(0xFF6B5344);
-  static const Color forestGreen = Color(0xFF2D5F2D);
-  static const Color golden = Color(0xFFD4A574);
-  static const Color lightGolden = Color(0xFFE8C99B);
-  static const Color softPink = Color(0xFFF5E1D0);
-  static const Color cardBackground = Color(0xFFFFF3E6);
+  // Fundaluri (mov profund, ușor diferite ca isDark să rămână valid)
+  static const Color cream = Color(0xFF241046); // fundal mod „zi"
+  static const Color cardBackground = Color(0x1FFFFFFF); // card sticlă (12% alb)
+  static const Color softPink = Color(0xFF7E5BC4); // tentă mov pt gradiente
 
-  // Night mode colors
-  static const Color nightBackground = Color(0xFF2C2416);
-  static const Color nightCard = Color(0xFF3D3226);
-  static const Color nightText = Color(0xFFE8D5C0);
-  static const Color nightAccent = Color(0xFFD4A574);
+  // Text
+  static const Color warmBrown = Color(0xFFEDE6FF); // text principal lavandă
+  static const Color lightBrown = Color(0xFFB3A2D9); // text secundar lavandă
+
+  // Accente
+  static const Color golden = Color(0xFFFFD98A); // auriu stea
+  static const Color lightGolden = Color(0xFFFFE9B8);
+  static const Color forestGreen = Color(0xFF4DD0E1); // teal cotor carte
+
+  // „Night mode" — variantă și mai întunecată, tot cosmic
+  static const Color nightBackground = Color(0xFF160A30);
+  static const Color nightCard = Color(0x1AFFFFFF); // card sticlă (10% alb)
+  static const Color nightText = Color(0xFFEDE6FF);
+  static const Color nightAccent = Color(0xFFFFD98A);
+
+  // Helpers gradient (folosite de fundalul cosmic)
+  static const Color cosmicTop = Color(0xFF3A1A6E);
+  static const Color cosmicMid = Color(0xFF241046);
+  static const Color cosmicBottom = Color(0xFF140826);
+  static const Color starGlow = Color(0xFFFFC95B);
+  static const Color glassStroke = Color(0x33FFFFFF);
 }
 
 ThemeData buildLightTheme() {

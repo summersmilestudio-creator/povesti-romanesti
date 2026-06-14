@@ -7,6 +7,7 @@ import '../providers/settings_provider.dart';
 import '../services/ad_service.dart';
 import '../theme.dart';
 import '../widgets/bottom_banner_ad.dart';
+import '../widgets/story_illustration.dart';
 
 enum TtsState { playing, stopped, paused }
 
@@ -247,12 +248,25 @@ class _ReadingScreenState extends State<ReadingScreen> {
     final totalPages = widget.story.pages.length;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.nightBackground : AppColors.cream,
+      backgroundColor: Colors.transparent,
       bottomNavigationBar: const SafeArea(
         top: false,
         child: BottomBannerAd(),
       ),
-      body: SafeArea(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppColors.cosmicTop,
+              AppColors.cosmicMid,
+              AppColors.cosmicBottom,
+            ],
+            stops: [0.0, 0.5, 1.0],
+          ),
+        ),
+        child: SafeArea(
         child: Column(
           children: [
             // Top bar
@@ -413,6 +427,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -422,16 +437,23 @@ class _ReadingScreenState extends State<ReadingScreen> {
     final isLast = index == widget.story.pages.length - 1;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Column(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 26),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.glassStroke, width: 1),
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Show emoji and title on first page
           if (isFirst) ...[
             Center(
-              child: Text(
-                widget.story.emoji,
-                style: const TextStyle(fontSize: 64),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(26),
+                child: StoryIllustration(story: widget.story, size: 136),
               ),
             ),
             const SizedBox(height: 12),
@@ -503,7 +525,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
             const SizedBox(height: 16),
             Center(
               child: Text(
-                '${widget.story.emoji} Sfarsit ${widget.story.emoji}',
+                '✦ Sfârșit ✦',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -517,6 +539,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
             const SizedBox(height: 32),
           ],
         ],
+        ),
       ),
     );
   }

@@ -5,11 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../services/ad_service.dart';
-import '../services/subscription_service.dart';
 
 /// Banner ancorat reutilizabil. Își încarcă propriul [BannerAd] (cu retry
-/// exponențial), respectă starea „fără reclame" (abonament + recompensă)
-/// și se ascunde curat când nu există reclamă disponibilă.
+/// exponențial), respectă fereastra de recompensă „fără reclame" și se
+/// ascunde curat când nu există reclamă disponibilă.
 class BottomBannerAd extends StatefulWidget {
   const BottomBannerAd({super.key});
 
@@ -28,8 +27,6 @@ class _BottomBannerAdState extends State<BottomBannerAd> {
   @override
   void initState() {
     super.initState();
-    SubscriptionService.instance.noAdsNotifier
-        .addListener(_onAdsAvailabilityChanged);
     AdService.adFreeNotifier.addListener(_onAdsAvailabilityChanged);
   }
 
@@ -85,8 +82,6 @@ class _BottomBannerAdState extends State<BottomBannerAd> {
   void dispose() {
     _bannerRetryTimer?.cancel();
     _bannerAd?.dispose();
-    SubscriptionService.instance.noAdsNotifier
-        .removeListener(_onAdsAvailabilityChanged);
     AdService.adFreeNotifier.removeListener(_onAdsAvailabilityChanged);
     super.dispose();
   }

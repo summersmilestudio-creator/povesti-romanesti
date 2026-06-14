@@ -3,7 +3,6 @@ import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'subscription_service.dart';
 
 class AdService {
   // ---- Ad unit IDs ----
@@ -39,10 +38,11 @@ class AdService {
   // Cadență mai relaxată: cere reclame mai rar. Mai puține solicitări
   // neumplute => rată de potrivire mai mare + conform politicii AdMob
   // (interstitial-urile prea dese pot duce la limitarea contului).
-  static const Duration _minTimeBetweenAds = Duration(minutes: 3);
-  // Timer-ul periodic e doar o plasă de siguranță; reclamele apar firesc
-  // la finalul poveștii. Era 1 min (prea agresiv, umplea cu solicitări goale).
-  static const Duration _periodicInterval = Duration(minutes: 5);
+  // Cadență agresivă (cerere user 2026-06-14): venit maxim din reclame.
+  static const Duration _minTimeBetweenAds = Duration(seconds: 90);
+  // Timer-ul periodic forțează un interstitial chiar dacă userul nu termină
+  // o poveste — mai des = mai multe afișări.
+  static const Duration _periodicInterval = Duration(minutes: 3);
 
   // ---- Retry cu backoff exponențial (crește rata de potrivire) ----
   // O solicitare care eșua era abandonată instant. Cu retry, multe
@@ -75,9 +75,9 @@ class AdService {
   static bool get isAdFreeActive =>
       _adFreeUntil != null && DateTime.now().isBefore(_adFreeUntil!);
 
-  /// Reclamele sunt blocate dacă: abonament noAds SAU fereastră recompensă activă.
-  static bool get adsBlocked =>
-      SubscriptionService.instance.noAds || isAdFreeActive;
+  /// Reclamele sunt blocate doar în fereastra de recompensă „fără reclame".
+  /// (Monetizare exclusiv prin reclame — nu există abonament fără reclame.)
+  static bool get adsBlocked => isAdFreeActive;
 
   /// Notifică UI-ul (banner) când starea „fără reclame" se schimbă.
   static final ValueNotifier<bool> adFreeNotifier = ValueNotifier(false);
@@ -89,7 +89,6 @@ class AdService {
   // INIT
   // ====================================================================
   static Future<void> initialize() async {
-    if (SubscriptionService.instance.noAds) return;
     await MobileAds.instance.updateRequestConfiguration(
       RequestConfiguration(
         tagForChildDirectedTreatment: TagForChildDirectedTreatment.unspecified,
@@ -366,7 +365,7 @@ class AdService {
   static bool _isAppOpenLoaded = false;
   static DateTime? _appOpenLoadTime;
   static DateTime? _lastAppOpenShownAt;
-  static const Duration _appOpenCooldown = Duration(minutes: 4);
+  static const Duration _appOpenCooldown = Duration(minutes: 2);
   static const Duration _appOpenMaxCacheAge = Duration(hours: 4);
 
   static void loadAppOpenAd() {
@@ -453,13 +452,11 @@ class AdService {
     _adFreeTimer?.cancel();
     _adFreeTimer = null;
     adFreeNotifier.value = false;
-    if (!SubscriptionService.instance.noAds) {
-      loadInterstitialAd();
-      loadRewardedAd();
-      loadRewardedInterstitialAd();
-      loadAppOpenAd();
-      startPeriodicInterstitial();
-    }
+    loadInterstitialAd();
+    loadRewardedAd();
+    loadRewardedInterstitialAd();
+    loadAppOpenAd();
+    startPeriodicInterstitial();
   }
 
   /// Minute rămase din fereastra de recompensă (0 dacă nu e activă).

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../providers/settings_provider.dart';
-import '../services/subscription_service.dart';
 import '../theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -16,54 +15,20 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _purchaseInProgress = false;
-
   @override
   void initState() {
     super.initState();
     widget.settingsProvider.addListener(_refresh);
-    SubscriptionService.instance.noAdsNotifier.addListener(_refresh);
   }
 
   @override
   void dispose() {
     widget.settingsProvider.removeListener(_refresh);
-    SubscriptionService.instance.noAdsNotifier.removeListener(_refresh);
     super.dispose();
   }
 
   void _refresh() {
     if (mounted) setState(() {});
-  }
-
-  Future<void> _buyNoAds() async {
-    setState(() => _purchaseInProgress = true);
-    try {
-      await SubscriptionService.instance.buyNoAds();
-    } finally {
-      if (mounted) {
-        setState(() => _purchaseInProgress = false);
-      }
-    }
-  }
-
-  Future<void> _restorePurchases() async {
-    setState(() => _purchaseInProgress = true);
-    try {
-      await SubscriptionService.instance.restore();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Achizițiile au fost verificate'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _purchaseInProgress = false);
-      }
-    }
   }
 
   @override
@@ -154,10 +119,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-
-            _buildNoAdsCard(isDark),
-
             const SizedBox(height: 32),
 
             // About section
@@ -223,153 +184,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildNoAdsCard(bool isDark) {
-    final sub = SubscriptionService.instance;
-    final isActive = sub.noAds;
-    final priceLabel = sub.product?.price ?? '25 RON / lună';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: isActive
-            ? LinearGradient(
-                colors: [
-                  AppColors.forestGreen.withValues(alpha: 0.15),
-                  AppColors.golden.withValues(alpha: 0.15),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
-        color: isActive
-            ? null
-            : (isDark ? AppColors.nightCard : AppColors.cardBackground),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isActive
-              ? AppColors.forestGreen.withValues(alpha: 0.6)
-              : AppColors.golden.withValues(alpha: 0.3),
-          width: isActive ? 1.5 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? AppColors.forestGreen.withValues(alpha: 0.2)
-                      : (isDark ? AppColors.nightBackground : AppColors.cream),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  isActive
-                      ? Icons.verified_rounded
-                      : Icons.workspace_premium_rounded,
-                  color: isActive ? AppColors.forestGreen : AppColors.golden,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isActive ? 'Abonament activ' : 'Elimină reclamele',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDark
-                            ? AppColors.nightText
-                            : AppColors.warmBrown,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      isActive
-                          ? 'Mulțumim că susții acest proiect!'
-                          : '$priceLabel — anulează oricând din magazin',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark
-                            ? AppColors.nightText.withValues(alpha: 0.7)
-                            : AppColors.lightBrown,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (!isActive) ...[
-            const SizedBox(height: 16),
-            Text(
-              'Citește toate cele 60 de povești fără bannere și fără pauze publicitare. Aboneaza-te lunar și ne sprijini să adăugăm conținut nou.',
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.5,
-                color: isDark ? AppColors.nightText : AppColors.warmBrown,
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _purchaseInProgress ? null : _buyNoAds,
-                icon: _purchaseInProgress
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.block_rounded),
-                label: Text(
-                  _purchaseInProgress
-                      ? 'Se procesează...'
-                      : 'Abonează-te — $priceLabel',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.forestGreen,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: TextButton(
-                onPressed: _purchaseInProgress ? null : _restorePurchases,
-                child: Text(
-                  'Restaurează achizițiile',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.lightBrown,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }
