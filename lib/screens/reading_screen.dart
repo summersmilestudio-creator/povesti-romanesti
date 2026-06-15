@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../models/story.dart';
@@ -48,6 +49,23 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
   Future<void> _initTts() async {
     _flutterTts = FlutterTts();
+
+    // iOS: configurează sesiunea audio ca vocea să se audă CHIAR ȘI cu butonul
+    // de silențios (mute switch) pornit. Fără asta, „Ascultă" e complet mut pe
+    // iPhone — cauza reală a „nu se aude nimic".
+    if (Platform.isIOS) {
+      await _flutterTts.setSharedInstance(true);
+      await _flutterTts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [
+          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+        ],
+        IosTextToSpeechAudioMode.defaultMode,
+      );
+    }
 
     await _flutterTts.setLanguage('ro-RO');
     await _flutterTts.awaitSpeakCompletion(true);

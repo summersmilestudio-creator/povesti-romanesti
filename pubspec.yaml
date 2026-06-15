@@ -1,7 +1,7 @@
 name: povesti_romanesti
 description: "Povești și legende românești - patrimoniu cultural pentru toată familia"
 publish_to: 'none'
-version: 2.3.8+16
+version: 2.3.9+17
 
 environment:
   sdk: ^3.11.1
