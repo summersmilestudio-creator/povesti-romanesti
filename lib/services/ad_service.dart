@@ -15,18 +15,21 @@ class AdService {
 
   static const String _iosBannerId = 'ca-app-pub-5549243085914479/1966190531';
   static const String _iosInterstitialId = 'ca-app-pub-5549243085914479/8469009388';
+  // Unități iOS noi (creat 2026-06-15) — acum iOS are toate formatele.
+  static const String _iosRewardedId = 'ca-app-pub-5549243085914479/8347928724';
+  static const String _iosRewardedInterstitialId = 'ca-app-pub-5549243085914479/5745520967';
+  static const String _iosAppOpenId = 'ca-app-pub-5549243085914479/9493194289';
 
   static String get bannerAdUnitId =>
       Platform.isIOS ? _iosBannerId : _androidBannerId;
   static String get interstitialAdUnitId =>
       Platform.isIOS ? _iosInterstitialId : _androidInterstitialId;
-  // null pe iOS => nu încărcăm/afișăm formatul respectiv pe iOS
   static String? get rewardedAdUnitId =>
-      Platform.isAndroid ? _androidRewardedId : null;
+      Platform.isIOS ? _iosRewardedId : _androidRewardedId;
   static String? get rewardedInterstitialAdUnitId =>
-      Platform.isAndroid ? _androidRewardedInterstitialId : null;
+      Platform.isIOS ? _iosRewardedInterstitialId : _androidRewardedInterstitialId;
   static String? get appOpenAdUnitId =>
-      Platform.isAndroid ? _androidAppOpenId : null;
+      Platform.isIOS ? _iosAppOpenId : _androidAppOpenId;
 
   // ---- Stare interstitial ----
   static InterstitialAd? _interstitialAd;
