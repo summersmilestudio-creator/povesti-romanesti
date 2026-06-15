@@ -9,6 +9,7 @@ import 'screens/favorites_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/ad_service.dart';
 import 'services/notification_service.dart';
+import 'services/tracking_service.dart';
 import 'services/unlock_service.dart';
 import 'theme.dart';
 import 'widgets/bottom_banner_ad.dart';
@@ -44,7 +45,10 @@ void main() {
       ]);
     });
     await _safeInit('UnlockService', UnlockService.instance.initialize);
-    await _safeInit('AdService', AdService.initialize);
+    // NOTE: AdService.initialize() is intentionally deferred to after the first
+    // frame (see _PovestiAppState.initState) so the App Tracking Transparency
+    // prompt can be shown BEFORE the ads SDK collects any tracking data
+    // (Apple guideline 5.1.2(i)).
     await _safeInit(
         'NotificationService', NotificationService.instance.initialize);
     await _safeInit('scheduleDailyReminders',
@@ -75,6 +79,17 @@ class _PovestiAppState extends State<PovestiApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     settingsProvider.addListener(_onSettingsChanged);
+    // Ask for tracking permission once the app is on screen, then init ads.
+    // ATT must precede the ads SDK so no tracking data is collected without
+    // consent (Apple 5.1.2(i)); a grant also unlocks the IDFA for higher eCPM.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await TrackingService.requestIfNeeded();
+      try {
+        await AdService.initialize();
+      } catch (e) {
+        debugPrint('[init] AdService deferred init failed: $e');
+      }
+    });
   }
 
   @override

@@ -8,6 +8,8 @@
 	<false/>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-5549243085914479~4721336065</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Permisiunea ne ajută să-ți afișăm reclame relevante și să măsurăm performanța aplicației. Poți refuza, iar poveștile rămân gratuite.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
